@@ -128,3 +128,99 @@ exports.checkLangAndDB = async () => {
 exports.spinner = ora({
   spinner: 'star2'
 });
+
+exports.generateValidatorFromModel = async () => {
+  const files = fs.readdirSync('./src/models');
+  files.forEach((fileName) => {
+    const modelContent = fs.readFileSync('./src/models/' + fileName).toString();
+    const moduleName = fileName.split('.')[0];
+    let modelSchema = modelContent
+      .substring(modelContent.indexOf('Schema(') + 8, modelContent.indexOf('timestamps: true'))
+      .split('\n');
+    modelSchema.pop();
+    modelSchema.pop();
+    modelSchema = modelSchema.join('\n');
+    if (modelSchema.endsWith(',')) {
+      modelSchema = modelSchema.substring(0, modelSchema.length - 1);
+    }
+
+    modelSchema = modelSchema.replace(/String/g, '"string"');
+    modelSchema = modelSchema.replace(/Number/g, '"number"');
+    modelSchema = modelSchema.replace(/Boolean/g, '"boolean"');
+    modelSchema = modelSchema.replace(/Date/g, '"date"');
+    modelSchema = modelSchema.replace(/Array/g, '"array"');
+    modelSchema = modelSchema.replace(/Schema.Types.ObjectId/g, '"objectId"');
+    modelSchema = modelSchema.replace(/Schema.Types.Mixed/g, '"mixed"');
+    modelSchema = modelSchema.replace(/ObjectId/g, '"objectId"');
+    modelSchema = modelSchema.replace(/Mixed/g, '"mixed"');
+
+    modelSchema = eval(`(${modelSchema})`);
+
+    modelSchema = iterateObject(modelSchema);
+    let a = {};
+    jsonToAjvSchema(modelSchema, a);
+    const ajvSchemaStringified = JSON.stringify(a, null, 2);
+    // modelSchema = modelSchema.replace(/"string"/g, 'Joi.string()');
+    // modelSchema = modelSchema.replace(/"number"/g, 'Joi.number()');
+    // modelSchema = modelSchema.replace(/"boolean"/g, 'Joi.boolean()');
+    // modelSchema = modelSchema.replace(/"date"/g, 'Joi.date()');
+    // modelSchema = modelSchema.replace(/"objectId"/g, 'Joi.objectId()');
+    // modelSchema = modelSchema.replace(/"mixed"/g, 'Joi.mixed()');
+    // modelSchema = modelSchema.replace(/"array"/g, 'Joi.array()');
+    // modelSchema = modelSchema.replace(/"object"/g, 'Joi.object()');
+
+    let validatorContent = fs.readFileSync('./src/validators/user.validator.js').toString();
+
+    validatorContent =
+      validatorContent.substring(0, validatorContent.indexOf('const bodySchema') + 19) +
+      ajvSchemaStringified +
+      ';\n' +
+      validatorContent.substring(
+        validatorContent.indexOf('// query Schema'),
+        validatorContent.length
+      );
+
+    fs.writeFileSync(`./src/validators/${moduleName}.validator.js`, validatorContent);
+  });
+};
+
+// function to iterate through nest object and array
+function iterateObject(obj, validationObject) {
+  if (typeof obj === 'object') {
+    if (typeof obj.type === 'string') {
+      return obj.type;
+    }
+  }
+  for (let property in obj) {
+    if (obj.hasOwnProperty(property)) {
+      if (Array.isArray(obj[property])) {
+        obj[property] = obj[property].map((item) => {
+          return iterateObject(item, validationObject);
+        });
+      } else if (typeof obj[property] === 'object') {
+        obj[property] = iterateObject(obj[property], validationObject);
+      }
+    }
+  }
+  return obj;
+}
+
+// json to ajv schema
+function jsonToAjvSchema(json, schema) {
+  if (typeof json === 'object') {
+    if (Array.isArray(json)) {
+      schema.type = 'array';
+      schema.items = {};
+      jsonToAjvSchema(json[0], schema.items);
+    } else {
+      schema.type = 'object';
+      schema.properties = {};
+      for (var key in json) {
+        schema.properties[key] = {};
+        jsonToAjvSchema(json[key], schema.properties[key]);
+      }
+    }
+  } else {
+    schema.type = json;
+  }
+}

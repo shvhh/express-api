@@ -6,7 +6,8 @@ const {
   addRouteToRouteIndex,
   addImportToRouteIndex,
   generateFile,
-  checkLangAndDB
+  checkLangAndDB,
+  generateValidatorFromModel
 } = require('./utils');
 
 const generateModel = async (model, config) => {
@@ -150,6 +151,16 @@ const getVersion = async (options) => {
   }
 };
 
+const generateValidatorFromModels = async (validatorFromModel, options) => {
+  try {
+    if (validatorFromModel) {
+      generateValidatorFromModel();
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 const generateTest = async (test, config) => {
   generateUnitTest(test, config);
   generateIntegrationTest(test, config);
@@ -158,6 +169,7 @@ const generateTest = async (test, config) => {
 module.exports = async (options) => {
   try {
     let config = await checkLangAndDB();
+    console.log(options);
     generateModel(options.model, config);
     generateController(options.controller, config);
     generateService(options.service, config);
@@ -172,5 +184,6 @@ module.exports = async (options) => {
     generateIntegrationTest(options.integrationtest, config);
     generateTest(options.test, config);
     getVersion(options);
+    generateValidatorFromModels(options.validatorFromModel);
   } catch (error) {}
 };

@@ -115,6 +115,11 @@ Usage: Speed up your application development with express-api-cli
     describe: 'Create new config file',
     type: 'string'
   })
+  .option('J', {
+    alias: 'validatorFromModel',
+    describe: 'create Validator From Model',
+    type: 'string'
+  })
   .help().argv;
 
 run(result);
