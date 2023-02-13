@@ -169,7 +169,6 @@ const generateTest = async (test, config) => {
 module.exports = async (options) => {
   try {
     let config = await checkLangAndDB();
-    console.log(options);
     generateModel(options.model, config);
     generateController(options.controller, config);
     generateService(options.service, config);
